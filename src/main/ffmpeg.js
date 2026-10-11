@@ -533,7 +533,7 @@ async function trimRecentPrecisely(inputPath, outputPath, options = {}) {
     '-af', 'asetpts=PTS-STARTPTS',
     '-b:a', `${audioBitrateKbps}k`,
     '-avoid_negative_ts', 'make_zero',
-    ...(webm ? [] : ['-movflags', '+faststart']),
+    ...(webm ? [] : ['-movflags', '+faststart', '-use_editlist', '0']),
     outputPath
   ], {
     jobId: options.jobId,
