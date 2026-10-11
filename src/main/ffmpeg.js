@@ -79,6 +79,7 @@ function run(args, {
   totalDurationMs = 0,
   jobId,
   captureProgress = false,
+  captureStderr = false,
   timeoutMs,
   inputBytes = 0
 } = {}) {
@@ -216,7 +217,7 @@ function run(args, {
       }
       if (code === 0) {
         if (onProgress) onProgress(1);
-        resolve({ progress: finalProgress });
+        resolve({ progress: finalProgress, ...(captureStderr ? { stderr } : {}) });
         return;
       }
       reject(new Error(stderr.trim() || `FFmpeg가 코드 ${code}로 종료되었습니다.`));
@@ -558,17 +559,23 @@ async function trimRecentPrecisely(inputPath, outputPath, options = {}) {
     if (!/Stream map '0:v:0' matches no streams/.test(message)) throw error;
     const inputBytes = await fs.stat(inputPath).then((stats) => stats.size, () => 0);
     const probe = await run([
-      '-v', 'error',
       '-i', inputPath,
       '-f', 'null',
       '-'
     ], {
       captureProgress: true,
+      captureStderr: true,
       jobId: options.jobId ? options.jobId + ':probe' : undefined,
       inputBytes
     });
     const probeTimestamp = Number(probe?.progress?.out_time_us ?? probe?.progress?.out_time_ms);
-    const inputDurationSec = probeTimestamp / 1000000;
+    const durationMatch = /Duration:\s*(\d+):(\d+):(\d+\.\d+)/.exec(probe?.stderr || '');
+    const headerDurationSec = durationMatch
+      ? Number(durationMatch[1]) * 3600 + Number(durationMatch[2]) * 60 + Number(durationMatch[3])
+      : 0;
+    const inputDurationSec = Number.isFinite(probeTimestamp) && probeTimestamp > 0
+      ? probeTimestamp / 1000000
+      : headerDurationSec;
     if (!Number.isFinite(inputDurationSec) || inputDurationSec <= 0) throw error;
     const startSec = Math.max(0, inputDurationSec - seekSeconds);
     const endSec = startSec + seconds;
