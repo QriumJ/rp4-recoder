@@ -519,8 +519,9 @@ async function run() {
   // A successful user-visible commit and a failed temp cleanup are different phases.
   // In particular, a precise clip must never surface its longer source buffer as another
   // recovered recording merely because an antivirus/indexer held that temp file open.
-  const artifactOriginal = path.join(settings.tempDir, `rp4-${crypto.randomUUID()}.part.mp4`);
-  const artifactTrimmed = path.join(settings.tempDir, `rp4-${crypto.randomUUID()}.part.mp4`);
+  const artifactTempDir = await paths.ensureOwnedTempDir(RECORDINGS);
+  const artifactOriginal = path.join(artifactTempDir, `rp4-${crypto.randomUUID()}.part.mp4`);
+  const artifactTrimmed = path.join(artifactTempDir, `rp4-${crypto.randomUUID()}.part.mp4`);
   await fsp.writeFile(artifactOriginal, Buffer.from('older private footage'));
   await fsp.writeFile(artifactTrimmed, Buffer.from('precise requested clip'));
   const originalArtifactRm = fsp.rm;
