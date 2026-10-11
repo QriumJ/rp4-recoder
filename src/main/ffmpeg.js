@@ -477,7 +477,9 @@ async function trimRecentToMp4(inputPath, outputPath, options = {}) {
   await fs.rm(outputPath, { force: true });
   await run([
     '-y',
-    '-sseof', `-${seekSeconds.toFixed(3)}`,
+    '-copyts',
+    '-start_at_zero',
+    '-sseof', `-${seekSeconds.toFixed(3)}`, 
     '-fflags', '+genpts',
     '-i', inputPath,
     '-t', seconds.toFixed(3),
@@ -517,6 +519,8 @@ async function trimRecentPrecisely(inputPath, outputPath, options = {}) {
   await fs.rm(outputPath, { force: true });
   await run([
     '-y',
+    '-copyts',
+    '-start_at_zero',
     '-sseof', `-${seekSeconds.toFixed(3)}`,
     '-i', inputPath,
     '-t', seconds.toFixed(3),
