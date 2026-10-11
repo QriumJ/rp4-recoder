@@ -522,6 +522,7 @@ async function trimRecentPrecisely(inputPath, outputPath, options = {}) {
     '-copyts',
     '-start_at_zero',
     '-sseof', `-${seekSeconds.toFixed(3)}`,
+    '-fflags', '+genpts',
     '-i', inputPath,
     '-t', seconds.toFixed(3),
     '-map', '0:v:0',
