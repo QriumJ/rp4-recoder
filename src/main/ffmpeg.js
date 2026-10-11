@@ -560,7 +560,6 @@ async function trimRecentPrecisely(inputPath, outputPath, options = {}) {
     const probe = await run([
       '-v', 'error',
       '-i', inputPath,
-      '-map', '0:v:0',
       '-f', 'null',
       '-'
     ], {
@@ -581,8 +580,6 @@ async function trimRecentPrecisely(inputPath, outputPath, options = {}) {
       '-y',
       '-i', inputPath,
       '-t', seconds.toFixed(3),
-      '-map', '0:v:0',
-      '-map', options.requireAudio ? '0:a:0' : '0:a:0?',
       '-vf', videoFilter,
       '-c:v', webm ? 'libvpx-vp9' : 'libx264',
       ...(webm ? ['-b:v', bitrateMbps + 'M', '-row-mt', '1'] : [
