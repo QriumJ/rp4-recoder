@@ -558,16 +558,21 @@ async function trimRecentPrecisely(inputPath, outputPath, options = {}) {
     const message = String(error?.message || error);
     if (!/Stream map '0:v:0' matches no streams/.test(message)) throw error;
     const inputBytes = await fs.stat(inputPath).then((stats) => stats.size, () => 0);
-    const probe = await run([
-      '-i', inputPath,
-      '-f', 'null',
-      '-'
-    ], {
-      captureProgress: true,
-      captureStderr: true,
-      jobId: options.jobId ? options.jobId + ':probe' : undefined,
-      inputBytes
-    });
+    let probe;
+    try {
+      probe = await run([
+        '-i', inputPath,
+        '-f', 'null',
+        '-'
+      ], {
+        captureProgress: true,
+        captureStderr: true,
+        jobId: options.jobId ? options.jobId + ':probe' : undefined,
+        inputBytes
+      });
+    } catch (probeError) {
+      throw new Error('정밀 클립 폴백 탐색 실패: ' + String(probeError?.message || probeError));
+    }
     const probeTimestamp = Number(probe?.progress?.out_time_us ?? probe?.progress?.out_time_ms);
     const durationMatch = /Duration:\s*(\d+):(\d+):(\d+\.\d+)/.exec(probe?.stderr || '');
     const headerDurationSec = durationMatch
