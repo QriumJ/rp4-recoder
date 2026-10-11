@@ -1791,7 +1791,7 @@ async function run() {
   });
   const clipMs = Date.now() - clipStarted;
 
-  check('clip saved', Boolean(clip), `${clip?.name} in ${clipMs} ms`);
+  check('clip saved', Boolean(clip), `${clip?.name} in ${clipMs} ms${clip?.conversionError ? ` error=${clip.conversionError}` : ''}`);
   check('clip is .mp4', clip?.name?.toLowerCase().endsWith('.mp4') === true);
   const clipProbe = await ffprobe(clip.filePath);
   check('clip is decodable H.264', clipProbe.codec === 'h264', `codec=${clipProbe.codec}`);
