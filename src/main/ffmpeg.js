@@ -515,37 +515,89 @@ async function trimRecentPrecisely(inputPath, outputPath, options = {}) {
   const preset = ['ultrafast', 'superfast', 'veryfast', 'faster', 'fast', 'medium']
     .includes(options.encoderPreset) ? options.encoderPreset : 'veryfast';
   const webm = extension === '.webm';
+  const runOptions = {
+    jobId: options.jobId,
+    onProgress: options.onProgress,
+    totalDurationMs: durationMs,
+    timeoutMs: options.timeoutMs
+  };
 
   await fs.rm(outputPath, { force: true });
-  await run([
+  const primaryArgs = [
     '-y',
     '-copyts',
     '-start_at_zero',
-    '-sseof', `-${seekSeconds.toFixed(3)}`,
+    '-sseof', '-' + seekSeconds.toFixed(3),
     '-fflags', '+genpts',
     '-i', inputPath,
     '-t', seconds.toFixed(3),
     '-map', '0:v:0',
     '-map', options.requireAudio ? '0:a:0' : '0:a:0?',
-    '-vf', `setpts=PTS-STARTPTS,fps=${fps},pad=ceil(iw/2)*2:ceil(ih/2)*2`,
+    '-vf', 'setpts=PTS-STARTPTS,fps=' + fps + ',pad=ceil(iw/2)*2:ceil(ih/2)*2',
     '-c:v', webm ? 'libvpx-vp9' : 'libx264',
-    ...(webm ? ['-b:v', `${bitrateMbps}M`, '-row-mt', '1'] : [
+    ...(webm ? ['-b:v', bitrateMbps + 'M', '-row-mt', '1'] : [
       '-preset', preset,
-      '-b:v', `${bitrateMbps}M`,
+      '-b:v', bitrateMbps + 'M',
       '-pix_fmt', 'yuv420p'
     ]),
     '-c:a', webm ? 'libopus' : 'aac',
     '-af', 'asetpts=PTS-STARTPTS',
-    '-b:a', `${audioBitrateKbps}k`,
+    '-b:a', audioBitrateKbps + 'k',
     '-avoid_negative_ts', 'make_zero',
     ...(webm ? [] : ['-movflags', '+faststart', '-use_editlist', '0']),
     outputPath
-  ], {
-    jobId: options.jobId,
-    onProgress: options.onProgress,
-    totalDurationMs: durationMs,
-    timeoutMs: options.timeoutMs
-  });
+  ];
+
+  try {
+    await run(primaryArgs, runOptions);
+    return;
+  } catch (error) {
+    // Fragmented MediaRecorder files can make -sseof seek past the only indexed
+    // fragment. Decode the complete input once and trim by the measured duration.
+    const message = String(error?.message || error);
+    if (!/Stream map '0:v:0' matches no streams/.test(message)) throw error;
+    const inputBytes = await fs.stat(inputPath).then((stats) => stats.size, () => 0);
+    const probe = await run([
+      '-v', 'error',
+      '-i', inputPath,
+      '-map', '0:v:0',
+      '-f', 'null',
+      '-'
+    ], {
+      captureProgress: true,
+      jobId: options.jobId ? options.jobId + ':probe' : undefined,
+      inputBytes
+    });
+    const probeTimestamp = Number(probe?.progress?.out_time_us ?? probe?.progress?.out_time_ms);
+    const inputDurationSec = probeTimestamp / 1000000;
+    if (!Number.isFinite(inputDurationSec) || inputDurationSec <= 0) throw error;
+    const startSec = Math.max(0, inputDurationSec - seekSeconds);
+    const endSec = startSec + seconds;
+    const videoFilter = 'trim=start=' + startSec.toFixed(3) + ':end=' + endSec.toFixed(3)
+      + ',setpts=PTS-STARTPTS,fps=' + fps + ',pad=ceil(iw/2)*2:ceil(ih/2)*2';
+    const audioFilter = 'atrim=start=' + startSec.toFixed(3) + ':end=' + endSec.toFixed(3)
+      + ',asetpts=PTS-STARTPTS';
+    await run([
+      '-y',
+      '-i', inputPath,
+      '-t', seconds.toFixed(3),
+      '-map', '0:v:0',
+      '-map', options.requireAudio ? '0:a:0' : '0:a:0?',
+      '-vf', videoFilter,
+      '-c:v', webm ? 'libvpx-vp9' : 'libx264',
+      ...(webm ? ['-b:v', bitrateMbps + 'M', '-row-mt', '1'] : [
+        '-preset', preset,
+        '-b:v', bitrateMbps + 'M',
+        '-pix_fmt', 'yuv420p'
+      ]),
+      '-c:a', webm ? 'libopus' : 'aac',
+      '-af', audioFilter,
+      '-b:a', audioBitrateKbps + 'k',
+      '-avoid_negative_ts', 'make_zero',
+      ...(webm ? [] : ['-movflags', '+faststart', '-use_editlist', '0']),
+      outputPath
+    ], runOptions);
+  }
 }
 
 /**
