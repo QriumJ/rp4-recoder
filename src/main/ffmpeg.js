@@ -442,6 +442,8 @@ async function trimRecent(inputPath, outputPath, {
   const seekSeconds = seconds + Math.max(0, Number(endOffsetMs) || 0) / 1000;
   const args = [
     '-y',
+    '-copyts',
+    '-start_at_zero',
     '-sseof', `-${seekSeconds.toFixed(3)}`,
     '-fflags', '+genpts',
     '-i', inputPath,
@@ -530,6 +532,7 @@ async function trimRecentPrecisely(inputPath, outputPath, options = {}) {
     '-c:a', webm ? 'libopus' : 'aac',
     '-af', 'asetpts=PTS-STARTPTS',
     '-b:a', `${audioBitrateKbps}k`,
+    '-avoid_negative_ts', 'make_zero',
     ...(webm ? [] : ['-movflags', '+faststart']),
     outputPath
   ], {
