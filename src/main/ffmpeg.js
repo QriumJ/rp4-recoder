@@ -520,7 +520,7 @@ async function trimRecentPrecisely(inputPath, outputPath, options = {}) {
     '-t', seconds.toFixed(3),
     '-map', '0:v:0',
     '-map', options.requireAudio ? '0:a:0' : '0:a:0?',
-    '-vf', `fps=${fps},pad=ceil(iw/2)*2:ceil(ih/2)*2`,
+    '-vf', `setpts=PTS-STARTPTS,fps=${fps},pad=ceil(iw/2)*2:ceil(ih/2)*2`,
     '-c:v', webm ? 'libvpx-vp9' : 'libx264',
     ...(webm ? ['-b:v', `${bitrateMbps}M`, '-row-mt', '1'] : [
       '-preset', preset,
@@ -528,6 +528,7 @@ async function trimRecentPrecisely(inputPath, outputPath, options = {}) {
       '-pix_fmt', 'yuv420p'
     ]),
     '-c:a', webm ? 'libopus' : 'aac',
+    '-af', 'asetpts=PTS-STARTPTS',
     '-b:a', `${audioBitrateKbps}k`,
     ...(webm ? [] : ['-movflags', '+faststart']),
     outputPath
